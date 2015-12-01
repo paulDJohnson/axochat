@@ -4,3 +4,4 @@ tests/axolotl.db
 build/
 dist/
 pyaxo.egg-info/
+*.db
