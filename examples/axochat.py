@@ -128,10 +128,10 @@ def closeWindows(stdscr):
     curses.endwin()
 
 def usage():
-    print 'Usage: ' + sys.argv[0] + ' -(s,c,g)'
-    print ' -s: start a chat in server mode'
-    print ' -c: start a chat in client mode'
-    print ' -g: generate a key database for a nick'
+    print ('Usage: ' + sys.argv[0] + ' -(s,c,g)')
+    print (' -s: start a chat in server mode')
+    print (' -c: start a chat in client mode')
+    print (' -g: generate a key database for a nick')
     exit()
 
 def receiveThread(sock, stdscr, input_win, output_win):
@@ -202,7 +202,8 @@ def chatThread(sock):
         closeWindows(stdscr)
 
 def getPasswd(nick):
-    return '1'
+    #return '1'
+    return nick
 
 if __name__ == '__main__':
     try:
@@ -230,10 +231,10 @@ if __name__ == '__main__':
         pass
     elif PORT == 1:
         PORT = 1025 + randint(0, 64510)
-        print 'PORT is ' + str(PORT)
+        print ('PORT is ' + str(PORT) )
 
     if mode == '-s':
-        print 'Waiting for ' + OTHER_NICK + ' to connect...'
+        print ('Waiting for ' + OTHER_NICK + ' to connect...')
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((HOST, PORT))
             s.listen(1)
@@ -242,7 +243,7 @@ if __name__ == '__main__':
 
     elif mode == '-c':
         HOST = raw_input('Enter the server: ')
-        print 'Connecting to ' + HOST + '...'
+        print ('Connecting to ' + HOST + '...')
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             chatThread(s)
@@ -259,9 +260,9 @@ if __name__ == '__main__':
              a.initState(OTHER_NICK, binascii.a2b_base64(identity), binascii.a2b_base64(handshake),
                          binascii.a2b_base64(ratchet))
              a.saveState()
-             print 'The database for ' + NICK + ' -> ' + OTHER_NICK + ' has been saved.'
+             print ('The database for ' + NICK + ' -> ' + OTHER_NICK + ' has been saved.')
          else:
-             print 'OK, nothing has been saved...'
+             print ('OK, nothing has been saved...')
 
     else:
         usage()
