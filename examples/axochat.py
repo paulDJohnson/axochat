@@ -108,6 +108,11 @@ def windows():
     curses.cbreak()
     curses.curs_set(1)
     (sizey, sizex) = stdscr.getmaxyx()
+    #input_win = curses.newwin(8, sizex, sizey-8, 0)
+    #output_win = curses.newwin(sizey-8, sizex, 0, 0)
+    if sizex > 60:
+        sizex = 60
+        # TODO: write code...
     input_win = curses.newwin(8, sizex, sizey-8, 0)
     output_win = curses.newwin(sizey-8, sizex, 0, 0)
     input_win.idlok(1)
