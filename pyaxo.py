@@ -34,6 +34,9 @@ from time import time
 from passlib.utils.pbkdf2 import pbkdf2
 from curve25519 import keys
 
+import requests
+import json
+
 # We cut out the inner cipher header to minimize bandwidth
 # and then add it back at decrypt time.
 cipher_hdr = {
@@ -417,6 +420,15 @@ class Axolotl:
             print 'Your Handshake key is:\n' + binascii.b2a_base64(self.handshakePKey)
         else:
             print 'Your Handshake key is not available'
+    
+    def postKeys(self):
+        url = 'https://lab3key.herokuapp.com/public_keys'
+        payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+        headers = {'content-type': 'application/json'}
+
+        response = requests.post(url, data=json.dumps(payload), headers=headers)
+        print response.status_code
+        print response.json()
 
     def saveState(self):
         HKs = 0 if self.state['HKs'] is None else binascii.b2a_base64(self.state['HKs']).strip()

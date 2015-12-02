@@ -251,7 +251,7 @@ if __name__ == '__main__':
     elif mode == '-g':
          a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
          a.printKeys()
-
+         a.postKeys()
          ans = raw_input('Do you want to create a new Axolotl database? y/N ').strip()
          if ans == 'y':
              identity = raw_input('What is the identity key for the other party? ').strip()
