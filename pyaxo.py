@@ -429,6 +429,15 @@ class Axolotl:
         response = requests.post(url, data=json.dumps(payload), headers=headers)
         print response.status_code
         print response.json()
+        
+        if response.json() == 0:
+            url = 'https://lab3key.herokuapp.com/public_keys/change'
+            payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+            headers = {'content-type': 'application/json'}
+
+            response = requests.post(url, data=json.dumps(payload), headers=headers)
+            print response.status_code
+            print response.json() 
 
     def saveState(self):
         HKs = 0 if self.state['HKs'] is None else binascii.b2a_base64(self.state['HKs']).strip()
