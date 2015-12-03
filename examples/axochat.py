@@ -10,6 +10,8 @@ from random import randint
 from contextlib import contextmanager
 from pyaxo import Axolotl
 from time import sleep
+import requests
+import json
 
 """
 Standalone chat script using AES256 encryption with Axolotl ratchet for
@@ -190,6 +192,7 @@ def chatThread(sock):
             with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
                      dbpassphrase=getPasswd(NICK)) as a:
                 try:
+                    #a.encrypt(data)
                     sock.send(a.encrypt(data) + 'EOP')
                 except socket.error:
                     input_win.addstr('Disconnected')
@@ -203,7 +206,7 @@ def chatThread(sock):
 
 def getPasswd(nick):
     #return '1'
-    return nick
+    return '1'
 
 if __name__ == '__main__':
     try:
@@ -221,7 +224,8 @@ if __name__ == '__main__':
             if mode == '-g':
                 PORT = 50000 # dummy assignment
                 break
-            PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
+            #PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
+            PORT = 50000
             PORT = int(PORT)
             break
         except ValueError:
@@ -234,35 +238,72 @@ if __name__ == '__main__':
         print ('PORT is ' + str(PORT) )
 
     if mode == '-s':
+        #a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
+        #a.printKeys()
+        #a.postKeys()
+        #fprint = a.getFingerprint()
+        #print 'Your identity key fingerprint is: '
+        #print fprint[:-1] + '\n'
         print ('Waiting for ' + OTHER_NICK + ' to connect...')
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((HOST, PORT))
             s.listen(1)
             conn, addr = s.accept()
+            
+            #a = axo(NICK, OTHER_NICK, OTHER_NICK+'.db', '1')
             chatThread(conn)
 
     elif mode == '-c':
-        HOST = raw_input('Enter the server: ')
+        #a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
+        #a.postKeys()
+        #fprint = a.getFingerprint()
+        #print 'Your identity key fingerprint is: '
+        #print fprint[:-1] + '\n'
+        
+        #HOST = raw_input('Enter the server: ')
+        HOST = ''
         print ('Connecting to ' + HOST + '...')
+        
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
+            
+            #a = axo(NICK, OTHER_NICK, OTHER_NICK+'.db', '1')
             chatThread(s)
 
     elif mode == '-g':
          a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
          a.printKeys()
          a.postKeys()
-         ans = raw_input('Do you want to create a new Axolotl database? y/N ').strip()
-         if ans == 'y':
-             identity = raw_input('What is the identity key for the other party? ').strip()
-             ratchet = raw_input('What is the ratchet key for the other party? ').strip()
-             handshake = raw_input('What is the handshake key for the other party? ').strip()
-             a.initState(OTHER_NICK, binascii.a2b_base64(identity), binascii.a2b_base64(handshake),
-                         binascii.a2b_base64(ratchet))
-             a.saveState()
-             print ('The database for ' + NICK + ' -> ' + OTHER_NICK + ' has been saved.')
-         else:
-             print ('OK, nothing has been saved...')
+         fprint = a.getFingerprint()
+         print 'Your identity key fingerprint is: '
+         print fprint[:-1] + '\n'
+         #ans = raw_input('Do you want to create a new Axolotl database? y/N ').strip()
+         #if ans == 'y':
+         #    identity = raw_input('What is the identity key for the other party? ').strip()
+         #    ratchet = raw_input('What is the ratchet key for the other party? ').strip()
+         #    handshake = raw_input('What is the handshake key for the other party? ').strip()
+         #    a.initState(OTHER_NICK, binascii.a2b_base64(identity), binascii.a2b_base64(handshake),
+         #                binascii.a2b_base64(ratchet))
+         #    a.saveState()
+         #    print ('The database for ' + NICK + ' -> ' + OTHER_NICK + ' has been saved.')
+         #else:
+         #    print ('OK, nothing has been saved...')
+    elif mode == '-h':
+         a = Axolotl(NICK, dbname=OTHER_NICK+'.db', dbpassphrase='1')
+         url = 'https://lab3key.herokuapp.com/public_keys/details'
+         #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+         headers = {'content-type': 'application/json'}
+         params = {'email': OTHER_NICK}
+         response = requests.get(url, params=params, headers=headers)
+         #print response.status_code
+         #print response.json()
+         #obj = response.json()
+         binary = response.content
+         obj = json.loads(binary)
+         print binary
+         print obj
+         a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
+         a.saveState()
 
     else:
         usage()

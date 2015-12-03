@@ -179,6 +179,7 @@ class Axolotl:
         else:
             if self.mode is None: # mode not selected
                 sys.exit(1)
+
         if self.mode: # alice mode
             RK = pbkdf2(mkey, b'\x00', 10, prf='hmac-sha256')
             HKs = None
@@ -261,10 +262,18 @@ class Axolotl:
         pad_length = 106 - len(msg1)
         pad = os.urandom(pad_length - 1) + chr(pad_length)
         msg = msg1 + pad + msg2
+        
+        #url = 'https://lab3key.herokuapp.com/messages'
+        #payload = {'message':{'source': self.state['name'], 'destination': self.state['other_name'], 'isSMP': False, 'typeSMP': 0, 'payload': msg}}
+        #headers = {'content-type': 'application/json'}
+
+        #response = requests.post(url, data=json.dumps(payload), headers=headers)
+        #print response.status_code
+        #print response.json()
+        
         self.state['Ns'] += 1
         self.state['CKs'] = hashlib.sha256(self.state['CKs'] + '1').digest()
         return msg
-
 
     def enc(self, key, plaintext):
         key = binascii.hexlify(key)
@@ -420,10 +429,17 @@ class Axolotl:
             print 'Your Handshake key is:\n' + binascii.b2a_base64(self.handshakePKey)
         else:
             print 'Your Handshake key is not available'
+            
+    def getFingerprint(self):
+        fingerprint = hashlib.sha224(self.state['DHIs']).hexdigest().upper()
+        fprint = ''
+        for i in range(0, len(fingerprint), 4):
+            fprint += fingerprint[i:i+2] + ':'
+        return fprint
     
     def postKeys(self):
         url = 'https://lab3key.herokuapp.com/public_keys'
-        payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+        payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']).strip('\n'), 'ratchet' : binascii.b2a_base64(self.state['DHRs']).strip('\n'), 'handshakekey' : binascii.b2a_base64(self.handshakePKey).strip('\n')}}
         headers = {'content-type': 'application/json'}
 
         response = requests.post(url, data=json.dumps(payload), headers=headers)
@@ -434,7 +450,6 @@ class Axolotl:
             url = 'https://lab3key.herokuapp.com/public_keys/change'
             payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
             headers = {'content-type': 'application/json'}
-
             response = requests.post(url, data=json.dumps(payload), headers=headers)
             print response.status_code
             print response.json() 
