@@ -238,9 +238,9 @@ if __name__ == '__main__':
         print ('PORT is ' + str(PORT) )
 
     if mode == '-s':
-        #a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
+        a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
         #a.printKeys()
-        #a.postKeys()
+        a.postKeys()
         #fprint = a.getFingerprint()
         #print 'Your identity key fingerprint is: '
         #print fprint[:-1] + '\n'
@@ -250,12 +250,27 @@ if __name__ == '__main__':
             s.listen(1)
             conn, addr = s.accept()
             
+            #a = axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db', dbpassphrase=getPasswd(NICK))
+            url = 'https://lab3key.herokuapp.com/public_keys/details'
+         #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+            headers = {'content-type': 'application/json'}
+            params = {'email': OTHER_NICK}
+            response = requests.get(url, params=params, headers=headers)
+         #print response.status_code
+         #print response.json()
+         #obj = response.json()
+            binary = response.content
+            obj = json.loads(binary)
+            print binary
+            print obj
+            a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
+            a.saveState()
             #a = axo(NICK, OTHER_NICK, OTHER_NICK+'.db', '1')
             chatThread(conn)
 
     elif mode == '-c':
-        #a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
-        #a.postKeys()
+        a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
+        a.postKeys()
         #fprint = a.getFingerprint()
         #print 'Your identity key fingerprint is: '
         #print fprint[:-1] + '\n'
@@ -266,7 +281,20 @@ if __name__ == '__main__':
         
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
-            
+            url = 'https://lab3key.herokuapp.com/public_keys/details'
+         #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+            headers = {'content-type': 'application/json'}
+            params = {'email': OTHER_NICK}
+            response = requests.get(url, params=params, headers=headers)
+         #print response.status_code
+         #print response.json()
+         #obj = response.json()
+            binary = response.content
+            obj = json.loads(binary)
+            print binary
+            print obj
+            a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
+            a.saveState()
             #a = axo(NICK, OTHER_NICK, OTHER_NICK+'.db', '1')
             chatThread(s)
 
@@ -277,6 +305,7 @@ if __name__ == '__main__':
          fprint = a.getFingerprint()
          print 'Your identity key fingerprint is: '
          print fprint[:-1] + '\n'
+         a.saveState()
          #ans = raw_input('Do you want to create a new Axolotl database? y/N ').strip()
          #if ans == 'y':
          #    identity = raw_input('What is the identity key for the other party? ').strip()
@@ -289,7 +318,7 @@ if __name__ == '__main__':
          #else:
          #    print ('OK, nothing has been saved...')
     elif mode == '-h':
-         a = Axolotl(NICK, dbname=OTHER_NICK+'.db', dbpassphrase='1')
+         a = axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db', dbpassphrase=getPasswd(NICK))
          url = 'https://lab3key.herokuapp.com/public_keys/details'
          #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
          headers = {'content-type': 'application/json'}
