@@ -144,8 +144,6 @@ def usage():
 def receiveThread(sock, stdscr, input_win, output_win):
     global screen_needs_update
     while True:
-       
-
         data = ''
 
         while data[-3:] != 'EOP':
@@ -180,7 +178,8 @@ def receiveThread(sock, stdscr, input_win, output_win):
             if data != '':
                 with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
                          dbpassphrase=getPasswd(NICK)) as a:
-                    output_win.addstr(a.decrypt(data) + " from db " + val + '\n')
+                    #output_win.addstr(a.decrypt(data) + " from db " + val + '\n')
+                    output_win.addstr(val + '\n')
         input_win.move(cursory, cursorx)
         input_win.cursyncup()
         input_win.noutrefresh()
