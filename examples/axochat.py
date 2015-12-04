@@ -12,6 +12,8 @@ from pyaxo import Axolotl
 from time import sleep
 import requests
 import json
+import urllib2 
+
 
 """
 Standalone chat script using AES256 encryption with Axolotl ratchet for
@@ -144,13 +146,23 @@ def receiveThread(sock, stdscr, input_win, output_win):
     while True:
         data = ''
         while data[-3:] != 'EOP':
-            rcv = sock.recv(1024)
-            if not rcv:
-                input_win.move(0, 0)
-                input_win.addstr('Disconnected - Ctrl-C to exit!')
-                input_win.refresh()
-                sys.exit()
-            data = data + rcv
+            url = "https://lab3key.herokuapp.com/messages?demail=" + NICK
+            req = urllib2.Request(url, headers={'content-type': 'application/json'})
+            response = urllib2.urlopen(req)
+            try:
+              val2 = response.read().decode('utf8')
+              if val2 == "none":
+                 val = "####no message"
+              else:
+                valstr =str(val2)
+                valstrRemove = valstr[1:len(valstr) -1]
+                jsonval = json.loads(valstrRemove)
+                val = jsonval["payload"]
+                data = val
+                val = val[0:len(val)-3]
+            except:
+              val = "exception" + sys.exc_info()[0].__name__
+            
         data_list = data.split('EOP')
         lock.acquire()
         (cursory, cursorx) = input_win.getyx()
@@ -158,7 +170,7 @@ def receiveThread(sock, stdscr, input_win, output_win):
             if data != '':
                 with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
                          dbpassphrase=getPasswd(NICK)) as a:
-                    output_win.addstr(a.decrypt(data))
+                    output_win.addstr(a.decrypt(binascii.a2b_base64(val)) + '\n')
         input_win.move(cursory, cursorx)
         input_win.cursyncup()
         input_win.noutrefresh()
@@ -184,10 +196,10 @@ def chatThread(sock):
                 closeWindows(stdscr)
                 sys.exit()
             input_win.clear()
-            input_win.addstr(NICK+':> ')
+            input_win.addstr(NICK+':> ' )
             output_win.addstr(data.replace('\n', '') + '\n', curses.color_pair(3))
             output_win.noutrefresh()
-            input_win.move(0, len(NICK)+3)
+            input_win.move(0, len(NICK)+3 )
             input_win.cursyncup()
             input_win.noutrefresh()
             screen_needs_update = True
@@ -197,6 +209,16 @@ def chatThread(sock):
                 try:
                     #a.encrypt(data)
                     sock.send(a.encrypt(data) + 'EOP')
+                    val = a.encrypt(data) #+ 'EOP'
+                    url = "https://lab3key.herokuapp.com/messages"
+                    payload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":False, "typeSMP":0, "payload":binascii.b2a_base64(val).strip('\n')+"EOP"}}
+                    params = json.dumps(payload)#, encoding='latin1')#ensure_ascii=True, encoding="ascii")#.encode('utf8')
+                    req = urllib2.Request(url, data=params, headers={'content-type': 'application/json'})
+                    try:
+                        response = urllib2.urlopen(req)
+                    except:
+                        input_win.addstr('Message Failed To Send'+ sys.exc_info()[0].__name__)
+                        input_win.refresh()
                 except socket.error:
                     input_win.addstr('Disconnected')
                     input_win.refresh()
@@ -207,8 +229,8 @@ def chatThread(sock):
     except KeyboardInterrupt:
         closeWindows(stdscr)
 
+
 def getPasswd(nick):
-    #return '1'
     return '1'
 
 if __name__ == '__main__':
