@@ -150,18 +150,17 @@ def receiveThread(sock, stdscr, input_win, output_win):
             req = urllib2.Request(url, headers={'content-type': 'application/json'})
             response = urllib2.urlopen(req)
             try:
-              val2 = response.read().decode('utf8')
-              if val2 == "none":
+              responseVal = response.read().decode('utf8')
+              if responseVal == "none":
                  val = "####no message"
               else:
-                valstr =str(val2)
+                valstr =str(responseVal)
                 valstrRemove = valstr[1:len(valstr) -1]
                 jsonval = json.loads(valstrRemove)
                 val = jsonval["payload"]
                 data = val
-                val = val[0:len(val)-3]
             except:
-              val = "exception" + sys.exc_info()[0].__name__
+              val = "exception"
             
         data_list = data.split('EOP')
         lock.acquire()
@@ -170,7 +169,10 @@ def receiveThread(sock, stdscr, input_win, output_win):
             if data != '':
                 with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
                          dbpassphrase=getPasswd(NICK)) as a:
-                    output_win.addstr(a.decrypt(binascii.a2b_base64(val)) + '\n')
+                    if data == "####no message" or  data == "exception":
+                        output_win.addstr(data + '\n')
+                    else:
+                        output_win.addstr(a.decrypt(binascii.a2b_base64(data)) + '\n')
         input_win.move(cursory, cursorx)
         input_win.cursyncup()
         input_win.noutrefresh()
@@ -207,12 +209,10 @@ def chatThread(sock):
             with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
                      dbpassphrase=getPasswd(NICK)) as a:
                 try:
-                    #a.encrypt(data)
-                    sock.send(a.encrypt(data) + 'EOP')
-                    val = a.encrypt(data) #+ 'EOP'
+                    val = a.encrypt(data) 
                     url = "https://lab3key.herokuapp.com/messages"
                     payload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":False, "typeSMP":0, "payload":binascii.b2a_base64(val).strip('\n')+"EOP"}}
-                    params = json.dumps(payload)#, encoding='latin1')#ensure_ascii=True, encoding="ascii")#.encode('utf8')
+                    params = json.dumps(payload)
                     req = urllib2.Request(url, data=params, headers={'content-type': 'application/json'})
                     try:
                         response = urllib2.urlopen(req)
@@ -264,65 +264,42 @@ if __name__ == '__main__':
 
     if mode == '-s':
         a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
-        #a.printKeys()
         a.postKeys()
-        #fprint = a.getFingerprint()
-        #print 'Your identity key fingerprint is: '
-        #print fprint[:-1] + '\n'
         print ('Waiting for ' + OTHER_NICK + ' to connect...')
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((HOST, PORT))
             s.listen(1)
             conn, addr = s.accept()
             
-            #a = axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db', dbpassphrase=getPasswd(NICK))
             url = 'https://lab3key.herokuapp.com/public_keys/details'
-         #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
             headers = {'content-type': 'application/json'}
             params = {'email': OTHER_NICK}
             response = requests.get(url, params=params, headers=headers)
-         #print response.status_code
-         #print response.json()
-         #obj = response.json()
             binary = response.content
             obj = json.loads(binary)
             print binary
             print obj
             a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
             a.saveState()
-            #a = axo(NICK, OTHER_NICK, OTHER_NICK+'.db', '1')
             chatThread(conn)
-
     elif mode == '-c':
         a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
         a.postKeys()
-        #fprint = a.getFingerprint()
-        #print 'Your identity key fingerprint is: '
-        #print fprint[:-1] + '\n'
-        
-        #HOST = raw_input('Enter the server: ')
         HOST = ''
         print ('Connecting to ' + HOST + '...')
-        
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             url = 'https://lab3key.herokuapp.com/public_keys/details'
-         #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
             headers = {'content-type': 'application/json'}
             params = {'email': OTHER_NICK}
             response = requests.get(url, params=params, headers=headers)
-         #print response.status_code
-         #print response.json()
-         #obj = response.json()
             binary = response.content
             obj = json.loads(binary)
             print binary
             print obj
             a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
             a.saveState()
-            #a = axo(NICK, OTHER_NICK, OTHER_NICK+'.db', '1')
             chatThread(s)
-
     elif mode == '-g':
          a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
          a.printKeys()
@@ -331,27 +308,12 @@ if __name__ == '__main__':
          print 'Your identity key fingerprint is: '
          print fprint[:-1] + '\n'
          a.saveState()
-         #ans = raw_input('Do you want to create a new Axolotl database? y/N ').strip()
-         #if ans == 'y':
-         #    identity = raw_input('What is the identity key for the other party? ').strip()
-         #    ratchet = raw_input('What is the ratchet key for the other party? ').strip()
-         #    handshake = raw_input('What is the handshake key for the other party? ').strip()
-         #    a.initState(OTHER_NICK, binascii.a2b_base64(identity), binascii.a2b_base64(handshake),
-         #                binascii.a2b_base64(ratchet))
-         #    a.saveState()
-         #    print ('The database for ' + NICK + ' -> ' + OTHER_NICK + ' has been saved.')
-         #else:
-         #    print ('OK, nothing has been saved...')
     elif mode == '-h':
          a = axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db', dbpassphrase=getPasswd(NICK))
          url = 'https://lab3key.herokuapp.com/public_keys/details'
-         #payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
          headers = {'content-type': 'application/json'}
          params = {'email': OTHER_NICK}
          response = requests.get(url, params=params, headers=headers)
-         #print response.status_code
-         #print response.json()
-         #obj = response.json()
          binary = response.content
          obj = json.loads(binary)
          print binary
