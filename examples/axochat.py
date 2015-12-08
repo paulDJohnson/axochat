@@ -308,7 +308,7 @@ if __name__ == '__main__':
                                 try:
                                     response = urllib2.urlopen(smReq)
                                 except:
-                                    print('Socialist millionaire protocol failed')
+                                    #print('Socialist millionaire protocol failed')
                                     sys.exit()
                             if step == 4:
                                 step4 = sm_py.step_4(payload, smKeys)
@@ -319,19 +319,19 @@ if __name__ == '__main__':
                                 try:
                                     response = urllib2.urlopen(smReq)
                                 except:
-                                    print('Socialist millionaire protocol failed')
-                                    print('after 4')
+                                   # print('Socialist millionaire protocol failed')
+                                    #print('after 4')
                                     sys.exit()
                             elif step == 6:
                                 step6 = sm_py.step_6(payload, smKeys)
                                 if step6["success"] != 1:
-                                    print('Socialist millionaire protocol failed')
-                                    print('after 6')
+                                   # print('Socialist millionaire protocol failed')
+                                    #print('after 6')
                                     sys.exit()
                                 smWait = False
             except:
                 print('Socialist millionaire protocol failed')
-                print('on receive')
+                #print('on receive')
                 sys.exit()
             sleep(0.01)
         a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
@@ -389,8 +389,8 @@ if __name__ == '__main__':
                                 try:
                                     response = urllib2.urlopen(smReq)
                                 except:
-                                    print('Socialist millionaire protocol failed')
-                                    print('after 2')
+                                    #print('Socialist millionaire protocol failed')
+                                    #print('after 2')
                                     sys.exit()
                             elif step == 5:
                                 step5 = sm_py.step_5(payload, smKeys)
@@ -401,17 +401,17 @@ if __name__ == '__main__':
                                 try:
                                     response = urllib2.urlopen(smReq)
                                 except:
-                                    print('Socialist millionaire protocol failed')
-                                    print('after 5')
+                                    #print('Socialist millionaire protocol failed')
+                                    #print('after 5')
                                     sys.exit()
                                 if step5["success"] != 1:
-                                    print('Socialist millionaire protocol failed')
-                                    print('no match')
+                                    #print('Socialist millionaire protocol failed')
+                                    #print('no match')
                                     sys.exit()
                                 smWait = False
             except:
                 print('Socialist millionaire protocol failed')
-                print('on receive')
+                #print('on receive')
                 sys.exit()
             sleep(0.01)
         a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
