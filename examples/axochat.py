@@ -14,6 +14,7 @@ import requests
 import json
 import urllib2 
 import sm_py
+import hashlib
 
 
 """
@@ -142,7 +143,7 @@ def usage():
     print (' -g: generate a key database for a nick')
     exit()
 
-def receiveThread(sock, stdscr, input_win, output_win):
+def receiveThread(stdscr, input_win, output_win):
     global screen_needs_update
     while True:
         data = ''
@@ -174,6 +175,7 @@ def receiveThread(sock, stdscr, input_win, output_win):
                         output_win.addstr(data + '\n')
                     else:
                         output_win.addstr(a.decrypt(binascii.a2b_base64(data)) + '\n')
+                        #output_win.addstr(data + '\n')
         input_win.move(cursory, cursorx)
         input_win.cursyncup()
         input_win.noutrefresh()
@@ -182,13 +184,13 @@ def receiveThread(sock, stdscr, input_win, output_win):
         screen_needs_update = True
         lock.release()
 
-def chatThread(sock):
+def chatThread():
     global screen_needs_update
     stdscr, input_win, output_win = windows()
     input_win.addstr(0, 0, NICK + ':> ')
     textpad = _Textbox(input_win, insert_mode=True)
     textpad.stripspaces = True
-    t = threading.Thread(target=receiveThread, args=(sock, stdscr, input_win,output_win))
+    t = threading.Thread(target=receiveThread, args=(stdscr, input_win,output_win))
     t.daemon = True
     t.start()
     try:
@@ -266,161 +268,166 @@ if __name__ == '__main__':
     if mode == '-s':
         a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
         a.postKeys()
-        secret = raw_input('Enter the secret message for ' + OTHER_NICK+ ': ')
-        smKeys = sm_py.key_init()["keys"]
+
+        obj = ''
+
         print ('Waiting for ' + OTHER_NICK + ' to connect and be authenticated...')
-        with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind((HOST, PORT))
-            s.listen(1)
-            conn, addr = s.accept()
-            
-            step1 = sm_py.step_1(secret, smKeys)
-            smKeys = step1["keys"]
-            smUrl = "https://lab3key.herokuapp.com/messages"
-            smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":2, "payload":step1["message"]}}
-            smParams = json.dumps(smPayload)
-            smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
+        smWait = True
+        while smWait:
+            smRecvUrl = "https://lab3key.herokuapp.com/messages?demail=" + NICK
+            smRecvReq = urllib2.Request(smRecvUrl, headers={'content-type': 'application/json'})
+            smRecvResp = urllib2.urlopen(smRecvReq)
             try:
-                response = urllib2.urlopen(smReq)
+                responseVal = smRecvResp.read().decode('utf8')
+                if responseVal != "none":
+                    valstr =str(responseVal)
+                    jsonval = json.loads(valstr)
+                    for message in jsonval:
+                        if message["isSMP"]:
+                            step = message["typeSMP"]
+                            payload = message["payload"]
+                            if step == 1:
+                                url = 'https://lab3key.herokuapp.com/public_keys/details'
+                                headers = {'content-type': 'application/json'}
+                                params = {'email': OTHER_NICK}
+                                response = requests.get(url, params=params, headers=headers)
+                                binary = response.content
+                                obj = json.loads(binary)
+                                secret = raw_input('Enter the secret message for ' + OTHER_NICK+ ': ')
+                                otherIdentity = obj['identity'].strip()
+                                myIdentity = binascii.b2a_base64(a.state['DHIs']).strip('\n')
+                                secret = secret + myIdentity + otherIdentity
+                                secret = hashlib.sha224(secret).hexdigest().upper()
+                                smKeys = sm_py.key_init()["keys"]
+                                step1 = sm_py.step_1(secret, smKeys)
+                                smKeys = step1["keys"]
+                                smUrl = "https://lab3key.herokuapp.com/messages"
+                                smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":2, "payload":step1["message"]}}
+                                smParams = json.dumps(smPayload)
+                                smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
+                                try:
+                                    response = urllib2.urlopen(smReq)
+                                except:
+                                    print('Socialist millionaire protocol failed')
+                                    sys.exit()
+                            if step == 4:
+                                step4 = sm_py.step_4(payload, smKeys)
+                                smKeys = step4["keys"]
+                                smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":5, "payload":step4["message"]}}
+                                smParams = json.dumps(smPayload)
+                                smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
+                                try:
+                                    response = urllib2.urlopen(smReq)
+                                except:
+                                    print('Socialist millionaire protocol failed')
+                                    print('after 4')
+                                    sys.exit()
+                            elif step == 6:
+                                step6 = sm_py.step_6(payload, smKeys)
+                                if step6["success"] != 1:
+                                    print('Socialist millionaire protocol failed')
+                                    print('after 6')
+                                    sys.exit()
+                                smWait = False
             except:
                 print('Socialist millionaire protocol failed')
+                print('on receive')
                 sys.exit()
-                
-            smWait = True
-            while smWait:
-                smRecvUrl = "https://lab3key.herokuapp.com/messages?demail=" + NICK
-                smRecvReq = urllib2.Request(smRecvUrl, headers={'content-type': 'application/json'})
-                smRecvResp = urllib2.urlopen(smRecvReq)
-                try:
-                    responseVal = smRecvResp.read().decode('utf8')
-                    if responseVal != "none":
-                        valstr =str(responseVal)
-                        jsonval = json.loads(valstr)
-                        for message in jsonval:
-                            if message["isSMP"]:
-                                step = message["typeSMP"]
-                                payload = message["payload"]
-                                if step == 4:
-                                    step4 = sm_py.step_4(payload, smKeys)
-                                    smKeys = step4["keys"]
-                                    smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":5, "payload":step4["message"]}}
-                                    smParams = json.dumps(smPayload)
-                                    smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
-                                    try:
-                                        response = urllib2.urlopen(smReq)
-                                    except:
-                                        print('Socialist millionaire protocol failed')
-                                        sys.exit()
-                                elif step == 6:
-                                    step6 = sm_py.step_6(payload, smKeys)
-                                    if step6["success"] != 1:
-                                        print('Socialist millionaire protocol failed')
-                                        sys.exit()
-                                    smWait = False
-                except:
-                    print('Socialist millionaire protocol failed')
-                    sys.exit()
-                sleep(0.01)
-            url = 'https://lab3key.herokuapp.com/public_keys/details'
-            headers = {'content-type': 'application/json'}
-            params = {'email': OTHER_NICK}
-            response = requests.get(url, params=params, headers=headers)
-            binary = response.content
-            obj = json.loads(binary)
-            print binary
-            print obj
-            a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
-            a.saveState()
-            chatThread(conn)
+            sleep(0.01)
+        a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
+        a.saveState()
+        chatThread()
     elif mode == '-c':
         a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
         a.postKeys()
-        HOST = ''
-        secret = raw_input('Enter the secret message for ' + OTHER_NICK+ ': ')
-        smKeys = sm_py.key_init()["keys"]
-        print ('Connecting to ' + HOST + '...')
-        with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((HOST, PORT))
-                
-            smWait = True
-            while smWait:
-                smUrl = "https://lab3key.herokuapp.com/messages"
-                smRecvUrl = "https://lab3key.herokuapp.com/messages?demail=" + NICK
-                smRecvReq = urllib2.Request(smRecvUrl, headers={'content-type': 'application/json'})
-                smRecvResp = urllib2.urlopen(smRecvReq)
-                try:
-                    responseVal = smRecvResp.read().decode('utf8')
-                    if responseVal != "none":
-                        valstr =str(responseVal)
-                        jsonval = json.loads(valstr)
-                        for message in jsonval:
-                            if message["isSMP"]:
-                                step = message["typeSMP"]
-                                payload = message["payload"]
-                                if step == 2:
-                                    step2 = sm_py.step_2(payload, smKeys)
-                                    smKeys = step2["keys"]
-                                    step3 = sm_py.step_3(secret, smKeys)
-                                    smKeys = step3["keys"]
-                                    smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":4, "payload":step3["message"]}}
-                                    smParams = json.dumps(smPayload)
-                                    smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
-                                    try:
-                                        response = urllib2.urlopen(smReq)
-                                    except:
-                                        print('Socialist millionaire protocol failed')
-                                        sys.exit()
-                                elif step == 5:
-                                    step5 = sm_py.step_5(payload, smKeys)
-                                    smKeys = step5["keys"]
-                                    smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":6, "payload":step5["message"]}}
-                                    smParams = json.dumps(smPayload)
-                                    smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
-                                    try:
-                                        response = urllib2.urlopen(smReq)
-                                    except:
-                                        print('Socialist millionaire protocol failed')
-                                        sys.exit()
-                                    if step5["success"] != 1:
-                                        print('Socialist millionaire protocol failed')
-                                        sys.exit()
-                                    smWait = False
-                except:
-                    print('Socialist millionaire protocol failed')
-                    sys.exit()
-                sleep(0.01)
-            
-            url = 'https://lab3key.herokuapp.com/public_keys/details'
-            headers = {'content-type': 'application/json'}
-            params = {'email': OTHER_NICK}
-            response = requests.get(url, params=params, headers=headers)
-            binary = response.content
-            obj = json.loads(binary)
-            print binary
-            print obj
-            a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
-            a.saveState()
-            chatThread(s)
-    elif mode == '-g':
-         a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
-         a.printKeys()
-         a.postKeys()
-         fprint = a.getFingerprint()
-         print 'Your identity key fingerprint is: '
-         print fprint[:-1] + '\n'
-         a.saveState()
-    elif mode == '-h':
-         a = axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db', dbpassphrase=getPasswd(NICK))
-         url = 'https://lab3key.herokuapp.com/public_keys/details'
-         headers = {'content-type': 'application/json'}
-         params = {'email': OTHER_NICK}
-         response = requests.get(url, params=params, headers=headers)
-         binary = response.content
-         obj = json.loads(binary)
-         print binary
-         print obj
-         a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
-         a.saveState()
 
+        smUrl = "https://lab3key.herokuapp.com/messages"
+        smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":1, "payload":''}}
+        smParams = json.dumps(smPayload)
+        smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
+        try:
+            response = urllib2.urlopen(smReq)
+        except:
+            print('Socialist millionaire protocol failed')
+            sys.exit()
+        url = 'https://lab3key.herokuapp.com/public_keys/details'
+        headers = {'content-type': 'application/json'}
+        params = {'email': OTHER_NICK}
+        response = requests.get(url, params=params, headers=headers)
+        binary = response.content
+        obj = json.loads(binary)
+        secret = raw_input('Enter the secret message for ' + OTHER_NICK+ ': ')
+        otherIdentity = obj['identity'].strip()
+        myIdentity = binascii.b2a_base64(a.state['DHIs']).strip('\n')
+        secret = secret + otherIdentity + myIdentity
+        secret = hashlib.sha224(secret).hexdigest().upper()
+        smKeys = sm_py.key_init()["keys"]
+        print ('Connecting to ' + OTHER_NICK + '...')
+        smWait = True
+        while smWait:
+            smUrl = "https://lab3key.herokuapp.com/messages"
+            smRecvUrl = "https://lab3key.herokuapp.com/messages?demail=" + NICK
+            smRecvReq = urllib2.Request(smRecvUrl, headers={'content-type': 'application/json'})
+            smRecvResp = urllib2.urlopen(smRecvReq)
+            try:
+                responseVal = smRecvResp.read().decode('utf8')
+                if responseVal != "none":
+                    valstr =str(responseVal)
+                    jsonval = json.loads(valstr)
+                    for message in jsonval:
+                        if message["isSMP"]:
+                            step = message["typeSMP"]
+                            payload = message["payload"]
+                            if step == 2:
+                                step2 = sm_py.step_2(payload, smKeys)
+                                smKeys = step2["keys"]
+                                step3 = sm_py.step_3(secret, smKeys)
+                                smKeys = step3["keys"]
+                                smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":4, "payload":step3["message"]}}
+                                smParams = json.dumps(smPayload)
+                                smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
+                                try:
+                                    response = urllib2.urlopen(smReq)
+                                except:
+                                    print('Socialist millionaire protocol failed')
+                                    print('after 2')
+                                    sys.exit()
+                            elif step == 5:
+                                step5 = sm_py.step_5(payload, smKeys)
+                                smKeys = step5["keys"]
+                                smPayload = { "message": {"source":NICK, "destination":OTHER_NICK, "isSMP":True, "typeSMP":6, "payload":step5["message"]}}
+                                smParams = json.dumps(smPayload)
+                                smReq = urllib2.Request(smUrl, data=smParams, headers={'content-type': 'application/json'})
+                                try:
+                                    response = urllib2.urlopen(smReq)
+                                except:
+                                    print('Socialist millionaire protocol failed')
+                                    print('after 5')
+                                    sys.exit()
+                                if step5["success"] != 1:
+                                    print('Socialist millionaire protocol failed')
+                                    print('no match')
+                                    sys.exit()
+                                smWait = False
+            except:
+                print('Socialist millionaire protocol failed')
+                print('on receive')
+                sys.exit()
+            sleep(0.01)
+        a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
+        a.saveState()
+        chatThread()
+    elif mode == '-g':
+        a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
+        a.postKeys()
+
+        url = 'https://lab3key.herokuapp.com/public_keys/details'
+        headers = {'content-type': 'application/json'}
+        params = {'email': OTHER_NICK}
+        response = requests.get(url, params=params, headers=headers)
+        binary = response.content
+        obj = json.loads(binary)
+        a.initState(OTHER_NICK, binascii.a2b_base64(obj['identity'].strip()), binascii.a2b_base64(obj['handshakekey'].strip()), binascii.a2b_base64(obj['ratchet'].strip()), False)
+        a.saveState()
     else:
         usage()

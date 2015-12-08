@@ -436,23 +436,25 @@ class Axolotl:
         for i in range(0, len(fingerprint), 4):
             fprint += fingerprint[i:i+2] + ':'
         return fprint
+       
+    def createFingerprint(self, key):
+        fingerprint = hashlib.sha224(key).hexdigest().upper()
+        fprint = ''
+        for i in range(0, len(fingerprint), 4):
+            fprint += fingerprint[i : i + 2] + ':'
+        return fprint
     
     def postKeys(self):
         url = 'https://lab3key.herokuapp.com/public_keys'
         payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']).strip('\n'), 'ratchet' : binascii.b2a_base64(self.state['DHRs']).strip('\n'), 'handshakekey' : binascii.b2a_base64(self.handshakePKey).strip('\n')}}
         headers = {'content-type': 'application/json'}
-
         response = requests.post(url, data=json.dumps(payload), headers=headers)
-        print response.status_code
-        print response.json()
         
         if response.json() == 0:
             url = 'https://lab3key.herokuapp.com/public_keys/change'
-            payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']), 'ratchet' : binascii.b2a_base64(self.state['DHRs']), 'handshakekey' : binascii.b2a_base64(self.handshakePKey)}}
+            payload = {'publickey':{'email': self.name, 'identity': binascii.b2a_base64(self.state['DHIs']).strip('\n'), 'ratchet' : binascii.b2a_base64(self.state['DHRs']).strip('\n'), 'handshakekey' : binascii.b2a_base64(self.handshakePKey).strip('\n')}}
             headers = {'content-type': 'application/json'}
             response = requests.post(url, data=json.dumps(payload), headers=headers)
-            print response.status_code
-            print response.json() 
 
     def saveState(self):
         HKs = 0 if self.state['HKs'] is None else binascii.b2a_base64(self.state['HKs']).strip()
